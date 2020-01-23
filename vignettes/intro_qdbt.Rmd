@@ -1,0 +1,119 @@
+---
+title: "Introduction To Qualitas Database Tools"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Introduction To Qualitas Database Tools}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+## Disclaimer
+The package `rquagdbtools` is introduced. 
+
+
+## Background
+According to different sources such as https://blogs.oracle.com/r/r-to-oracle-database-connectivity%3a-use-roracle-for-both-performance-and-scalability and https://stackoverflow.com/questions/7019912/using-the-rjava-package-on-win7-64-bit-with-r, it is possible to directly retrieve data from a database into R. 
+
+The technical details of this connections vary. The approach that is used and described here is via `RJDBC`. This seams to work quite stably although, it uses packages like `rJava` which are not always easy to work with. The big advantage of using `RJDBC` over other connection package is that the dependency on the operating system is kept minimal.
+
+The primary resource for this document is http://www.rforge.net/RJDBC/. 
+
+
+## Installation
+The package installation is done via
+
+```{r}
+s_rjdbc_pn <- "RJDBC"
+if (! s_rjdbc_pn %in% installed.packages())
+  install.packages(pkgs = s_rjdbc_pn, dependencies = TRUE, repos = "https://cran.rstudio.com")
+```
+
+
+### Issues with rJava
+Due to changes in the licencing policy of oracle, we switched from oracle JDK to the openjdk implementation of adoptopenjdk. From what is available in the documentations, the recommended way is to use 
+
+```
+R CMD javareconf [options]
+```
+
+where `[options]` allows to specify an alternative set of configurations for java. For my environment the following command worked. 
+
+```
+#cd /Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/
+#sudo ln -s Home RHome
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home
+sudo R CMD javareconf JAVA_HOME=${JAVA_HOME} \
+  JAVA=${JAVA_HOME}/bin/java \
+  JAVAC=${JAVA_HOME}/bin/javac \
+  JAVAH=${JAVA_HOME}/bin/javah \
+  JAR=${JAVA_HOME}/bin/jar \
+  JAVA_LD_LIBRARY_PATH=${JAVA_HOME}/jre/lib/server \
+  JAVA_CPPFLAGS="-I${JAVA_HOME}/include -I${JAVA_HOME}/include/darwin"
+```
+
+After that `rJava` worked from the terminal version of `R`. But it could not be used from the RStudio console. In the RStudio console, we kept getting the error 
+
+```
+> library(rJava)
+Error: package or namespace load failed for ‘rJava’:
+ .onLoad failed in loadNamespace() for 'rJava', details:
+  call: dyn.load(file, DLLpath = DLLpath, ...)
+  error: unable to load shared object '/Library/Frameworks/R.framework/Versions/3.6/Resources/library/rJava/libs/rJava.so':
+  dlopen(/Library/Frameworks/R.framework/Versions/3.6/Resources/library/rJava/libs/rJava.so, 6): Library not loaded: /Library/Java/JavaVirtualMachines/jdk-11.0.1.jdk/Contents/Home/lib/server/libjvm.dylib
+  Referenced from: /Library/Frameworks/R.framework/Versions/3.6/Resources/library/rJava/libs/rJava.so
+  Reason: image not found
+```
+
+The reason for this might be that after running the `R CMD javareconf` command in the terminal, the environment bash environment variable `JAVA_HOME` is set to 
+
+```
+Sys.getenv("JAVA_HOME")
+[1] "/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home"
+```
+
+This is not the case in the RStudio console. Setting the variable `JAVA_HOME` via `Sys.setenv()` and by changing the reference to `libjvm.dylib` in `rJava.so`, seams to solve the problem.
+
+```{r, eval=FALSE}
+# get the path to the existing libjvm
+jh <- system(command = '/usr/libexec/java_home', intern = TRUE)
+Sys.setenv(JAVA_HOME = jh)
+Sys.getenv("JAVA_HOME")
+jdk_path <- dirname(dirname(jh))
+find_cmd <- paste("find", jdk_path, "-name 'libjvm.dylib' -print", collapse = " ")
+ljvm_path_existing <- system(command = find_cmd, intern = TRUE)
+# get path to required libjvm
+rjso_path <- system.file(file.path('libs', 'rJava.so'), package = "rJava")
+ot_cmd <- paste("otool -l", rjso_path, "| grep 'libjvm.dylib'", collapse = " ")
+ot_res <- system(command = ot_cmd, intern = TRUE)
+ljvm_path_req <- grep('libjvm.dylib', unlist(stringi::stri_split_fixed(ot_res, " ", omit_empty = TRUE)), value = TRUE, fixed = TRUE)
+# use install_name_tool to change the reference
+int_cmd <- paste("install_name_tool -change", ljvm_path_req, ljvm_path_existing, rjso_path, collapse = " ")
+system(command = int_cmd)
+
+# test
+library(RJDBC)
+```
+
+The above shown solution fixes the problem when using the R-package `rJava` in the RStudio console. Because the tools used (`java_home`, `otool` and `install_name_tool`) are only available on MacOs, this solution is not portable to linx or windows. Hence on these platforms more checks and more work needs to be done. Hopes are all on `R CMD javareconf` to work correctly on windows and linux.
+
+
+## Documentation
+The R man page files are the primary source of documentation.
+
+
+## Pre-requisites
+To be able to establish a connection to an oracle database using `RJDBC`, the JDBC-driver of oracle (ojdbc.jar) must be installed. Version 8 of ojdbc seams to be appropriate to connect to an oracle database version 12. The downloadlink is https://www.oracle.com/database/technologies/jdbc-ucp-122-downloads.html. Alternatively, `ojdbc` can also be obtained from https://maven.xwiki.org/externals/com/oracle/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar. 
+
+Two functions to download `ojdbc` and to set the path to the `ojdbc.jar` file are provided in this package respectively. 
+
+* `download_ojdbc()` does the download and 
+* `set_path_ojdbc()` sets the path. 
+
+
+

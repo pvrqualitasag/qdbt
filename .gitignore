@@ -1,0 +1,4 @@
+*.html
+*.R
+inst/doc
+.Rproj.user

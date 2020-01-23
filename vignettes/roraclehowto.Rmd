@@ -1,0 +1,48 @@
+---
+title: "ROracle HowTo"
+author: "Peter von Rohr"
+date: "`r Sys.Date()`"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{ROracle HowTo}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+
+## Disclaimer
+A possible usage scenario for the package `ROracle` is described. The scenario focus on connection with the databases of Qualitas AG. Due to dependencies of the required OCI package from the underlying operating system, we are not using `ROracle` so far. Consult the other vignettes in this package for alternative solutions.
+
+
+## Installation
+The package `ROracle` is installed with
+
+```{r eval=FALSE}
+if (! "ROracle" %in% installed.packages()) 
+  install.packages(pkgs = "ROracle")
+```
+
+Appearantly before being able to install `ROracle`, the `oracle-client-interface` (OCI) for the respective operating system must be installed. 
+
+
+### Installing OCI
+Depending on the operating system we are running on, we have to first download and install `OCI`. This can be done according to the description given in 
+
+```
+https://www.oracle.com/database/technologies/instant-client/macos-intel-x86-downloads.html#ic_osx_inst
+```
+
+
+## First Example Connections
+According to `https://cran.r-project.org/web/packages/ROracle/ROracle.pdf` connections to exernal databases can be established using the following approach.
+
+
+## Conclusion
+Because OCI needs to be installed for every operating system that is in use, and since we use macos and linux, the possiblities of having a completely automated package that works out of the box is not given when using ROracle. Therefore, we quit looking into the usage of the package `ROracle`. 
